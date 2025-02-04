@@ -8,13 +8,17 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// datasource db {
+//   provider = "postgres"
+//   url      = env("POSTGRES_URL")
+// }
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "mongodb"
+  url      = "mongodb://access_gateman:haltOrDie@localhost/access?authSource=admin"
 }
 
 model User {
-  id         Int          @id @default(autoincrement())
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
   name       String
   email      String       @unique
   createdAt  DateTime     @default(now())
@@ -23,11 +27,11 @@ model User {
 }
 
 model UserAccess {
-  id        String       @id @default(uuid())
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
   createdAt DateTime     @default(now())
   updatedAt DateTime?
   user      User         @relation(fields: [userId], references: [id])
-  userId    Int
+  userId    String       @db.ObjectId
   status    AccessStatus @default(SUCCESS)
   message   String?
 }

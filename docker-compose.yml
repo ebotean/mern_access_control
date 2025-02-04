@@ -2,17 +2,63 @@ services:
   # api:
   #   build: .
   #   ports:
-  #     - "3000:5000"
-  db:
-    image: 'postgres:17.2-alpine'
-    restart: always
-    shm_size: 128mb
-    volumes:
-      - postgres-data:/var/lib/posgresql/data
+  #     - 3000:5000
+  # postgres:
+  #   image: postgres:17.2-alpine
+  #   restart: always
+  #   shm_size: 128mb
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_USER: admin
+  #     POSTGRES_PASSWORD: example
+  #     POSTGRES_DB: access
+
+  mongo:
+    image: mongo:8.0.4
+    restart: unless-stopped
+    command: [ "--replSet", "rs0", "--keyFile", "/etc/mongo-keyfile" ]
+    ports:
+      - 27017:27017
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: example
-      POSTGRES_DB: access
+      - MONGO_INITDB_ROOT_USERNAME=$MONGO_INITDB_ROOT_USERNAME
+      - MONGO_INITDB_ROOT_PASSWORD=$MONGO_INITDB_ROOT_PASSWORD
+      - APP_USER=$APP_USER
+      - APP_PWD=$APP_PWD
+      - DB_NAME=$DB_NAME
+      - DB_COLLECTION_NAME=$DB_COLLECTION_NAME
+      - MONGO_HOSTNAME=$MONGO_HOSTNAME
+    volumes:
+      - mongo-data:/var/lib/mongo/data
+      - ./docker-entrypoint-initdb.d//mongo-keyfile:/etc/mongo-keyfile:ro
+      - ./docker-entrypoint-initdb.d/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - mongo-cluster
+    healthcheck:
+      test: mongosh --host localhost:27017 --eval 'db.adminCommand("ping")' || exit 1
+      interval: 15s
+      timeout: 30s
+      start_period: 0s
+      start_interval: 1s
+      retries: 30
+
+  mongo-init-replica:
+    image: mongo:8.0.4
+    container_name: mongo-init-replica
+    depends_on:
+      - mongo
+    volumes:
+      - ./docker-entrypoint-initdb.d/init-replica.sh:/docker-entrypoint-initdb.d/init-replica.sh:ro
+    entrypoint: [ "/docker-entrypoint-initdb.d/init-replica.sh" ]
+    networks:
+      - mongo-cluster
 
 volumes:
-  postgres-data:
+  # postgres-data:
+  mongo-data:
+
+
+networks:
+  mongo-cluster:
+    name: starter-mongo-network
+    driver: bridge

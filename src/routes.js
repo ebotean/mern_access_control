@@ -6,9 +6,7 @@ const router = express.Router()
 router.get('/access', async (req, res) => {
   let accessList = await getLatestAccesses();
   if (!accessList.length) {
-    await createAccess(3);
-    console.log('creating')
-    accessList = await getLatestAccesses();
+    return res.status(200).json([]);
   }
   return res.status(200).json(accessList);
 });

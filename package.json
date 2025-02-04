@@ -7,14 +7,17 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test:integration": "jest test/integration",
+    "test:unit": "vitest -c ./vitest.config.unit.ts",
+    "test:unit:ui": "vitest -c ./vitest.config.unit.ts --ui"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.3.0",
     "express": "^4.21.2",
-    "moment": "^2.30.1"
+    "moment": "^2.30.1",
+    "mongodb": "^6.13.0"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.4.0",

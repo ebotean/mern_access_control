@@ -1,7 +1,7 @@
 const request = require('supertest');
 const express = require('express');
 
-const app = require('../../src/app');
+const app = require('../../src/app/app');
 
 describe('GET /access', function () {
   it('responds with json array', async function () {

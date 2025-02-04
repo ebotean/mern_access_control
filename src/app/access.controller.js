@@ -29,7 +29,7 @@ const getLatestAccesses = () => {
 const createMockAccess = async (numAccess = 1) => {
   const accesses = [];
   for (let i = 0; i < numAccess; i++) {
-    const accessUserId = Math.floor(Math.random() * 3) + 1;
+    const accessUserId = Math.floor(Math.random() * 100) + 1;
     accesses.push({ userId: accessUserId, });
   }
   try {
@@ -59,9 +59,9 @@ const createAccess = async (userId, numAccess) => {
   if (numAccess) {
     return createMockAccess(numAccess);
   }
-  const lastAccess = await findLastUserTransit(userId);
+  const lastAccess = await findLastSuccessfulUserTransit(userId);
 
-  if (!lastAccess.updatedAt) {
+  if (lastAccess && !lastAccess.updatedAt) {
     const errorMsg = `User ${userId} attempting to get entrance clearance without having left the building.`;
     const access = await createAccessWithError(userId, errorMsg);
     return access;
@@ -76,10 +76,11 @@ const createAccess = async (userId, numAccess) => {
   return access;
 }
 
-const findLastUserTransit = (userId) => {
+const findLastSuccessfulUserTransit = (userId) => {
   return prisma.userAccess.findFirst({
     where: {
       userId: userId,
+      status: AccessStatus.SUCCESS
     },
     orderBy: {
       createdAt: 'desc',
@@ -88,9 +89,16 @@ const findLastUserTransit = (userId) => {
 }
 
 const concludeAccess = async (userId) => {
-  const lastAccess = await findLastUserTransit(userId);
+  const lastAccess = await findLastSuccessfulUserTransit(userId);
 
-  if (lastAccess.updatedAt) {
+
+  if (!lastAccess) {
+    const errorMsg = `User ${userId} never entered the building.`;
+    const access = await createAccessWithError(userId, errorMsg);
+    return access;
+  }
+
+  if (lastAccess && lastAccess.updatedAt) {
     const errorMsg = `User ${userId} attempting to get exit clearance without having entered the building.`;
     const access = await createAccessWithError(userId, errorMsg);
     return access;
@@ -126,7 +134,5 @@ const accessClearance = async (userId, entering = true) => {
 
 module.exports = {
   getLatestAccesses,
-  createAccess,
   accessClearance,
-  concludeAccess,
 };
