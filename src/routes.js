@@ -1,5 +1,5 @@
 const express = require('express')
-const { createAccess, getLatestAccesses, accessClearance } = require('./access.controller');
+const { getLatestAccesses, accessClearance } = require('./app/access.controller');
 const router = express.Router()
 
 
