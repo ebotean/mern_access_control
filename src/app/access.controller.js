@@ -1,59 +1,13 @@
 const moment = require('moment');
 const { AccessStatus } = require('@prisma/client')
-const prisma = require('../db');
 
 const accessMapper = require('./access.mapper');
-
-const findLastAccessesByUser = () => {
-  return prisma.userAccess.aggregateRaw({
-    pipeline: [
-      {
-        $match: {
-          $or: [
-            { updatedAt: null },
-            { updatedAt: { $exists: true } },
-          ]
-        }
-      },
-      { $sort: { userId: 1, createdAt: -1 } },
-      {
-        $group: {
-          _id: "$userId",
-          latestEntry: { $first: "$$ROOT" }
-        }
-      },
-      { $replaceRoot: { newRoot: "$latestEntry" } },
-      { $limit: 15 },
-      {
-        $lookup: {
-          from: 'User',
-          localField: 'userId',
-          foreignField: '_id',
-          as: 'user'
-        }
-      },
-      { $unwind: "$user" },
-      { $sort: { createdAt: -1, 'user.name': 1 } },
-      {
-        $project: {
-          _id: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          message: 1,
-          status: 1,
-          "user._id": 1,
-          "user.name": 1,
-          "user.email": 1
-        }
-      }
-    ],
-  });
-}
+const { createUserAccess, setAccessUpdatedAt, findAccessLogs, findLastAccessesByUser, findLastSuccessfulUserTransit, getRandomUser } = require('../lib/query');
 
 const getLatestAccesses = async () => {
   try {
     const results = await findLastAccessesByUser();
-    const accesses = accessMapper(results).map();
+    const accesses = accessMapper(results).mapToResponse();
     return accesses;
   } catch (e) {
     console.error(e);
@@ -65,16 +19,24 @@ const createAccessWithError = async (userId, errorMsg, failure = false) => {
   const accessStatus = failure ? AccessStatus.FAILURE : AccessStatus.ERROR;
   const message = failure ? 'There was a physical failure on the access gate.' : errorMsg;
   const now = moment().utc().toISOString();
-  const access = prisma.userAccess.create({
-    data: {
-      userId: userId,
-      status: accessStatus,
-      message: message,
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
+  const userAccess = {
+    userId: userId,
+    status: accessStatus,
+    message: message,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const access = createUserAccess(userAccess)
   return access;
+}
+
+const createRandomAccess = async () => {
+  const randomDirection = Math.floor(Math.random() * 2) === 0;
+  const randomUser = await getRandomUser();
+  if (!randomUser.length) {
+    console.error('Cannot create random access because there are no existing users');
+  }
+  await accessClearance(randomUser[0]._id.$oid, randomDirection);
 }
 
 const createAccess = async (userId) => {
@@ -82,7 +44,7 @@ const createAccess = async (userId) => {
 
   if (lastAccess && !lastAccess.updatedAt) {
     const errorMsg = `User ${userId} attempting to get entrance clearance without having left the building.`;
-    return createAccessWithError(userId, errorMsg);;
+    return createAccessWithError(userId, errorMsg);
   }
   const userAccess = {
     userId: userId,
@@ -96,21 +58,7 @@ const createAccess = async (userId) => {
     userAccess.status = AccessStatus.WARNING;
   }
 
-  return prisma.userAccess.create({
-    data: userAccess,
-  });
-}
-
-const findLastSuccessfulUserTransit = (userId) => {
-  return prisma.userAccess.findFirst({
-    where: {
-      userId: userId,
-      status: AccessStatus.SUCCESS
-    },
-    orderBy: {
-      createdAt: 'desc',
-    }
-  });
+  return createUserAccess(userAccess);
 }
 
 const concludeAccess = async (userId) => {
@@ -128,17 +76,20 @@ const concludeAccess = async (userId) => {
     return access;
   }
 
-  const access = prisma.userAccess.update({
-    where: {
-      id: lastAccess.id,
-      userId: userId
-    },
-    data: {
-      updatedAt: moment().utc().toISOString(),
-    }
-  });
-
+  const access = setAccessUpdatedAt(lastAccess.id, userId);
   return access;
+}
+
+const getAccessLog = async (dateFrom, dateTo) => {
+  if (!dateFrom) {
+    dateFrom = moment().utc().toISOString();
+  }
+  if (!dateTo) {
+    dateTo = moment().add(-1, 'year').utc().toISOString();
+  }
+  const results = await findAccessLogs();
+  const accessLog = accessMapper(results).map();
+  return accessLog;
 }
 
 const accessClearance = async (userId, entering = true) => {
@@ -161,10 +112,13 @@ const accessClearance = async (userId, entering = true) => {
     access = createAccess(userId, isFailure);
   }
   // TODO publish access msg
+  // messageBroker().send('access', `Access (${entering ? 'IN' : 'OUT'}) from user ${userId}`);
   return access;
 }
 
 module.exports = {
-  getLatestAccesses,
   accessClearance,
+  createRandomAccess,
+  getAccessLog,
+  getLatestAccesses,
 };

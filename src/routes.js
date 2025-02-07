@@ -1,13 +1,16 @@
 const express = require('express')
-const { getLatestAccesses, accessClearance } = require('./app/access.controller');
+const { getLatestAccesses, accessClearance, getAccessLog } = require('./app/access.controller');
 const router = express.Router()
 
 
 router.get('/access', async (req, res) => {
   let accessList = await getLatestAccesses();
-  if (!accessList.length) {
-    return res.status(200).json([]);
-  }
+  return res.status(200).json(accessList);
+});
+
+router.get('/access/log', async (req, res) => {
+  const queryParams = req.query;
+  let accessList = await getAccessLog(queryParams.dateFrom, queryParams.dateTo);
   return res.status(200).json(accessList);
 });
 

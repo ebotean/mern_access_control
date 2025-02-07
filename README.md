@@ -11,10 +11,10 @@ Users can be identified by an UUIDv4. Validation can result in four statuses:
 - **FAILURE**: If the system is unable to validate the access.
 
 ## Behaviors
-These are specific behaviors expected 
+These are specific behaviors expected from the application:
 - The application should receive an access roughly every 7 seconds.
 - Upon receiving an access, it should be immediately reflected in the UI.
-- Users must be registered in the system, and their access must be logged for up to 3 days.
+- Users must be registered in the system, and their access must be logged for up to 3 days from the present date. Older logs must be deleted from the DB.
 
 ### Constraints
 - Users may only enter if they are out of the building; may only exit if they are inside the building.
@@ -43,3 +43,6 @@ Make sure you have followed the installation steps. From the root project folder
 - Postgres
 - MongoDB
 - Docker
+
+## PENDING (!)
+This app is still missing the docker-compose configuration. It's meant to start up the apps with the DB.
